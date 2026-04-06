@@ -42,7 +42,7 @@ export default function SettingsPage() {
   // Branch management state
   const [editingBranchId, setEditingBranchId] = useState(null);
   const [editBranchValues, setEditBranchValues] = useState(null);
-  const [newBranchValues, setNewBranchValues] = useState({ name: "", location: "", phone: "" });
+  const [newBranchValues, setNewBranchValues] = useState({ name: "", location: "", phone: "", status: "ACTIVE" });
   const [isAddingBranch, setIsAddingBranch] = useState(false);
 
   const itemsPerPage = 5;
@@ -274,6 +274,10 @@ export default function SettingsPage() {
 
   async function updateBranch() {
     if (!editingBranchId || !editBranchValues) return;
+    if (editBranchValues.isMain && editBranchValues.status === "INACTIVE") {
+      toast.error("Main branch cannot be set to INACTIVE");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch(`/api/branches/${editingBranchId}`, {
@@ -601,7 +605,7 @@ export default function SettingsPage() {
             <Card>
               <CardContent>
                 {isAddingBranch && (
-                  <div className="mb-6 p-4 border rounded-lg bg-gray-50 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                  <div className="mb-6 p-4 border rounded-lg bg-gray-50 grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                     <div>
                       <label className="text-xs font-bold mb-1 block">Name</label>
                       <Input 
@@ -625,6 +629,21 @@ export default function SettingsPage() {
                         onChange={e => setNewBranchValues({...newBranchValues, phone: e.target.value})}
                         placeholder="Phone"
                       />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold mb-1 block">Status</label>
+                      <Select
+                        value={newBranchValues.status}
+                        onValueChange={(v) => setNewBranchValues({...newBranchValues, status: v})}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ACTIVE">ACTIVE</SelectItem>
+                          <SelectItem value="INACTIVE">INACTIVE</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="flex gap-2">
                       <Button onClick={createBranch} disabled={saving} className="bg-orange-500">Save</Button>
@@ -671,7 +690,22 @@ export default function SettingsPage() {
                             />
                           ) : b.phone}
                         </TableCell>
-                        <TableCell>{b.status}</TableCell>
+                        <TableCell>
+                          {editingBranchId === b.id ? (
+                            <Select
+                              value={editBranchValues.status}
+                              onValueChange={(v) => setEditBranchValues({...editBranchValues, status: v})}
+                            >
+                              <SelectTrigger className="w-[100px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="ACTIVE">ACTIVE</SelectItem>
+                                {!b.isMain && <SelectItem value="INACTIVE">INACTIVE</SelectItem>}
+                              </SelectContent>
+                            </Select>
+                          ) : b.status}
+                        </TableCell>
                         <TableCell className="flex gap-2">
                           {editingBranchId === b.id ? (
                             <>

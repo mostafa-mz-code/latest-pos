@@ -5,7 +5,8 @@ import { canAccess } from "@/lib/permissions";
 
 export async function GET(req) {
   const auth = await getAuthFromRequest(req);
-  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!auth)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   // Only admins can see all branches
   // if (!canAccess(auth.role, "admin.only")) {
@@ -17,15 +18,18 @@ export async function GET(req) {
     // Verify if current user belongs to main branch
     const currentUser = await prisma.user.findUnique({
       where: { id: auth.id },
-      include: { branch: true }
+      include: { branch: true },
     });
 
     if (!currentUser?.branch?.isMain) {
       // If not main branch, only return their own branch
       const myBranch = await prisma.branch.findUnique({
-        where: { id: auth.branchId }
+        where: { id: auth.branchId },
       });
-      return NextResponse.json({ success: true, data: myBranch ? [myBranch] : [] });
+      return NextResponse.json({
+        success: true,
+        data: myBranch ? [myBranch] : [],
+      });
     }
 
     const branches = await prisma.branch.findMany({
@@ -33,36 +37,60 @@ export async function GET(req) {
     });
     return NextResponse.json({ success: true, data: branches });
   } catch (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 },
+    );
   }
 }
 
 export async function POST(req) {
   const auth = await getAuthFromRequest(req);
-  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!canAccess(auth.role, "admin.only")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!auth)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!canAccess(auth.role, "admin.only"))
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   try {
     // Verify if current user belongs to main branch
     const currentUser = await prisma.user.findUnique({
       where: { id: auth.id },
-      include: { branch: true }
+      include: { branch: true },
     });
 
     if (!currentUser?.branch?.isMain) {
-      return NextResponse.json({ error: "Only main branch admins can manage branches" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Only main branch admins can manage branches" },
+        { status: 403 },
+      );
     }
 
     const body = await req.json();
-    const { name, location, phone, isMain } = body;
+    const { name, location, phone, isMain, status } = body;
 
-    if (!name) return NextResponse.json({ error: "Name is required" }, { status: 400 });
+    if (!name)
+      return NextResponse.json({ error: "Name is required" }, { status: 400 });
 
     const branch = await prisma.branch.create({
-      data: { name, location, phone, isMain: isMain || false },
+      data: {
+        name,
+        location,
+        phone,
+        isMain: isMain || false,
+        status: status || "ACTIVE",
+      },
     });
     return NextResponse.json({ success: true, data: branch }, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    if (error.code === "P2002" && error.meta?.target?.includes("name")) {
+      return NextResponse.json(
+        { error: "Branch name already exists" },
+        { status: 400 },
+      );
+    }
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 },
+    );
   }
 }
